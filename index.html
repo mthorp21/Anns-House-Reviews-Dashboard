@@ -38,6 +38,12 @@ h2{font-size:12.5px;text-transform:uppercase;letter-spacing:.07em;color:var(--mu
 .w h4{color:var(--good)}.b h4{color:var(--bad)}
 ul{margin:0;padding-left:18px}li{margin-bottom:6px;font-size:13.5px}
 .note{font-size:11.5px;color:var(--mut);margin-top:16px;border-top:1px solid var(--line);padding-top:8px}
+.ov{position:fixed;inset:0;background:rgba(0,0,0,.62);display:none;align-items:center;justify-content:center;padding:16px;z-index:10}
+.ov.open{display:flex}
+.md{background:var(--card);color:var(--ink);border-radius:12px;max-width:760px;width:100%;max-height:90vh;overflow:auto;padding:22px;position:relative;border:4px solid #fff;box-shadow:0 0 0 1px rgba(0,0,0,.12),0 0 0 10px rgba(255,255,255,.35),0 20px 60px rgba(0,0,0,.45)}
+.x{position:absolute;top:10px;right:12px;border:0;background:none;color:var(--mut);font-size:26px;line-height:1;cursor:pointer;padding:4px 8px}
+.nav{display:flex;justify-content:space-between;margin-top:16px;border-top:1px solid var(--line);padding-top:12px}
+.nav button{font-size:13px;background:none;border:1px solid var(--line);color:var(--ink);border-radius:6px;padding:6px 12px;cursor:pointer}
 @media (max-width:860px){.grid,.cols{grid-template-columns:1fr}.kp{grid-template-columns:1fr 1fr}.row,.hd{grid-template-columns:88px 1fr 50px 36px}}
 @media print{.all,.hint{display:none}}
 </style></head><body><div class="wrap">
@@ -52,14 +58,14 @@ ul{margin:0;padding-left:18px}li{margin-bottom:6px;font-size:13.5px}
 </div>
 <div class="grid">
 <div class="card"><h2>Store scorecard (60 days)</h2>
-<div class="hint">Click any location to see what is working and what is breaking.</div>
+<div class="hint">Tap any location to open what is working and what is breaking. Use arrows to move between stores.</div>
 <div class="hd"><span></span><span>Star average (dashed line = 4.5 target)</span><span style="text-align:right">1&amp;2★</span><span style="text-align:right">Reviews</span></div>
 <div id="rows"></div>
-<button class="all" id="allbtn">Show group view</button>
 <div class="foot">Targets: 4.5★ average, 8% or less at 1&amp;2 stars (red = over target). Grand Blanc opened 11.16, so its reviews are an opening push. Plainfield, Grand Haven and Byron Center have under 20 reviews.</div>
 </div>
 <div class="card dt" id="detail" aria-live="polite"></div>
 </div>
+<div class="ov" id="ov" role="dialog" aria-modal="true"><div class="md dt"><button class="x" id="x" aria-label="Close">×</button><div id="mbody"></div><div class="nav"><button id="prev">‹ Previous</button><button id="next">Next ›</button></div></div></div>
 <div class="note">Themes are based on roughly 400 written Google reviews across 11 stores; most reviews are star only. Westland and Grand Blanc written reviews were not read in this pull. Guest claims are unverified. Internal use only.</div>
 </div>
 <script>
@@ -88,11 +94,16 @@ S.forEach((s,i)=>{const r=document.createElement('div');r.className='row';r.tabI
 r.innerHTML=`<div class="nm">${s.n}</div><div class="track"><div class="bar" style="width:${x(s.a)}%;background:${col(s)}">${s.a.toFixed(2)}</div><div class="tgt" style="left:${x(4.5)}%"></div></div><div class="pct ${s.l>8?'over':''}">${s.l.toFixed(1)}%</div><div class="n">${s.c}</div>`;
 r.onclick=()=>show(i);r.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();show(i)}};rows.appendChild(r)});
 const li=a=>a.map(t=>`<li>${t}</li>`).join('');
-function show(i){document.querySelectorAll('.row').forEach(r=>r.classList.toggle('on',+r.dataset.i===i));
-const s=i<0?G:S[i];const t=i<0?["Group","#555"]:tier(s);
-document.getElementById('detail').innerHTML=`<h2>${i<0?'Group view':'Location detail'}</h2><h3>${i<0?s.n:"Anna's House "+s.n}<span class="tag" style="background:${t[1]}">${t[0]}</span></h3>
-<div class="stats"><div><b>${s.a.toFixed(2)}★</b>Star average</div><div><b style="color:${s.l>8?'var(--bad)':'inherit'}">${s.l.toFixed(1)}%</b>1&amp;2 star share</div><div><b>${s.c}</b>Reviews, 60 days</div>${i<0?'':`<div><b>#${i+1} of 14</b>Rank by stars</div>`}</div>
+let cur=-1;const ov=document.getElementById('ov');
+function show(i){cur=i;document.querySelectorAll('.row').forEach(r=>r.classList.toggle('on',+r.dataset.i===i));
+document.getElementById('mbody').innerHTML=html(i);ov.classList.add('open');document.getElementById('x').focus()}
+function close(){ov.classList.remove('open');document.querySelectorAll('.row').forEach(r=>r.classList.remove('on'));const r=document.querySelector(`.row[data-i="${cur}"]`);r&&r.focus()}
+document.getElementById('x').onclick=close;ov.onclick=e=>{if(e.target===ov)close()};
+document.getElementById('prev').onclick=()=>show((cur+S.length-1)%S.length);document.getElementById('next').onclick=()=>show((cur+1)%S.length);
+document.addEventListener('keydown',e=>{if(!ov.classList.contains('open'))return;if(e.key==='Escape')close();if(e.key==='ArrowRight')show((cur+1)%S.length);if(e.key==='ArrowLeft')show((cur+S.length-1)%S.length)});
+function html(i){const s=i<0?G:S[i];const t=i<0?["Group","#555"]:tier(s);
+return `<h2>${i<0?'Group view':'Location detail'}</h2><h3>${i<0?s.n:"Anna's House "+s.n}<span class="tag" style="background:${t[1]}">${t[0]}</span></h3>
+<div class="stats"><div><b>${s.a.toFixed(2)}★</b>Star average</div><div><b style="color:${s.l>8?'var(--bad)':'var(--ink)'}">${s.l.toFixed(1)}%</b>1&amp;2 star share</div><div><b>${s.c}</b>Reviews, 60 days</div>${i<0?'':`<div><b>#${i+1} of 14</b>Rank by stars</div>`}</div>
 <div class="read">${s.read}</div><div class="cols"><div class="w"><h4>What is working</h4><ul>${li(s.w)}</ul></div><div class="b"><h4>What is breaking</h4><ul>${li(s.b)}</ul></div></div>`}
-document.getElementById('allbtn').onclick=()=>show(-1);
-show(-1);
+document.getElementById('detail').innerHTML=html(-1);
 </script></body></html>
